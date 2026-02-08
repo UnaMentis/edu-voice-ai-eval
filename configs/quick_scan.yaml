@@ -1,0 +1,12 @@
+# Quick Scan: Fast model capability check (~5 min)
+suite: quick_scan
+model_type: llm
+description: "Fast capability check with MMLU subset, ARC Easy, GSM8K"
+estimated_duration_minutes: 5
+education_tiers: [elementary, highschool]
+benchmarks:
+  - edu_tier1_mmlu_elementary
+  - edu_tier1_arc_easy
+  - edu_tier1_gsm8k
+  - edu_tier2_mmlu_hs_math
+  - edu_tier2_mmlu_hs_bio

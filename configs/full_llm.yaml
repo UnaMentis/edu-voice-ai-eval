@@ -1,0 +1,31 @@
+# Full LLM: Exhaustive evaluation (~2 hours)
+suite: full_llm
+model_type: llm
+description: "Complete LLM evaluation including education tiers, standard benchmarks, and tutoring"
+estimated_duration_minutes: 120
+education_tiers: [elementary, highschool, undergrad, grad]
+benchmarks:
+  # All education tier benchmarks
+  - edu_tier1_mmlu_elementary
+  - edu_tier1_arc_easy
+  - edu_tier1_gsm8k
+  - edu_tier2_mmlu_hs_bio
+  - edu_tier2_mmlu_hs_chem
+  - edu_tier2_mmlu_hs_phys
+  - edu_tier2_mmlu_hs_math
+  - edu_tier2_mmlu_hs_hist
+  - edu_tier2_mmlu_hs_cs
+  - edu_tier2_arc_challenge
+  - edu_tier3_mmlu_college
+  - edu_tier3_math
+  - edu_tier3_mmlu_pro
+  - edu_tier4_mmlu_professional
+  - edu_tier4_gpqa
+  # Standard benchmarks
+  - standard_truthfulqa
+  - standard_hellaswag
+  - standard_humaneval
+  - standard_ifeval
+  # Education-specific
+  - edu_tutorbench
+  - edu_openlearnlm

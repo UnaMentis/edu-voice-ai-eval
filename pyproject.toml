@@ -1,0 +1,86 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "edu-voice-ai-eval"
+version = "0.1.0"
+description = "Unified AI model evaluation for educational voice interaction"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [{ name = "UnaMentis" }]
+
+dependencies = [
+    "click>=8.0",
+    "fastapi>=0.100",
+    "uvicorn>=0.20",
+    "websockets>=12.0",
+    "pluggy>=1.0",
+    "pydantic>=2.0",
+    "aiosqlite>=0.19",
+    "jiwer>=3.0",
+    "huggingface-hub>=0.20",
+    "pyyaml>=6.0",
+    "rich>=13.0",
+    "tabulate>=0.9",
+]
+
+[project.optional-dependencies]
+llm = [
+    "lm-eval>=0.4",
+    "transformers>=4.40",
+    "torch>=2.0",
+    "accelerate>=0.25",
+]
+stt = [
+    "transformers>=4.40",
+    "datasets>=2.18",
+    "torch>=2.0",
+    "torchaudio>=2.0",
+    "soundfile>=0.12",
+]
+tts = [
+    "torch>=2.0",
+    "torchaudio>=2.0",
+    "wvmos>=0.3",
+]
+all = ["edu-voice-ai-eval[llm,stt,tts]"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.3",
+    "mypy>=1.8",
+    "httpx>=0.27",
+]
+postgresql = ["asyncpg>=0.29"]
+celery = ["celery>=5.3", "redis>=5.0"]
+
+[project.scripts]
+voicelearn-eval = "voicelearn_eval.cli.main:cli"
+
+[project.entry-points."voicelearn_eval.plugins"]
+lm_eval_harness = "voicelearn_eval.plugins.llm.lm_eval_harness:LMEvalHarnessPlugin"
+stt_eval = "voicelearn_eval.plugins.stt.open_asr:STTEvalPlugin"
+tts_eval = "voicelearn_eval.plugins.tts.quality:TTSEvalPlugin"
+
+[tool.hatch.build.targets.wheel]
+packages = ["voicelearn_eval"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["UP042"]
+
+[tool.ruff.lint.per-file-ignores]
+"voicelearn_eval/storage/seed.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

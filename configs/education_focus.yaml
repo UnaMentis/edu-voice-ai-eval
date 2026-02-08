@@ -1,0 +1,29 @@
+# Education Focus: Comprehensive education assessment (~30 min)
+suite: education_focus
+model_type: llm
+description: "Full education-tier evaluation across all four levels"
+estimated_duration_minutes: 30
+education_tiers: [elementary, highschool, undergrad, grad]
+benchmarks:
+  # Tier 1: Elementary
+  - edu_tier1_mmlu_elementary
+  - edu_tier1_arc_easy
+  - edu_tier1_gsm8k
+  # Tier 2: High School
+  - edu_tier2_mmlu_hs_bio
+  - edu_tier2_mmlu_hs_chem
+  - edu_tier2_mmlu_hs_phys
+  - edu_tier2_mmlu_hs_math
+  - edu_tier2_mmlu_hs_hist
+  - edu_tier2_mmlu_hs_cs
+  - edu_tier2_arc_challenge
+  # Tier 3: Undergraduate
+  - edu_tier3_mmlu_college
+  - edu_tier3_math
+  - edu_tier3_mmlu_pro
+  # Tier 4: Graduate
+  - edu_tier4_mmlu_professional
+  - edu_tier4_gpqa
+  # Non-tiered quality checks
+  - standard_truthfulqa
+  - standard_hellaswag

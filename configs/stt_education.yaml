@@ -1,0 +1,14 @@
+# STT Education: Standard + educational vocabulary (~20 min)
+suite: stt_education
+model_type: stt
+description: "STT accuracy including educational domain vocabulary"
+estimated_duration_minutes: 20
+benchmarks:
+  - stt_librispeech_clean
+  - stt_librispeech_other
+  - stt_common_voice
+  - stt_tedlium
+  - stt_edu_tier1_vocabulary
+  - stt_edu_tier2_vocabulary
+  - stt_edu_tier3_vocabulary
+  - stt_edu_tier4_vocabulary

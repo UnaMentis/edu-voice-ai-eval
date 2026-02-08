@@ -1,0 +1,12 @@
+# TTS Quality: Comprehensive quality assessment (~10 min)
+suite: tts_quality
+model_type: tts
+description: "Full TTS quality evaluation including MOS, intelligibility, and pronunciation"
+estimated_duration_minutes: 10
+benchmarks:
+  - tts_mos_standard
+  - tts_intelligibility
+  - tts_pronunciation_science
+  - tts_pronunciation_math
+  - tts_pronunciation_history
+  - tts_prosody

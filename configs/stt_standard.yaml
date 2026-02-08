@@ -1,0 +1,10 @@
+# STT Standard: Standard accuracy benchmarks (~15 min)
+suite: stt_standard
+model_type: stt
+description: "Standard STT accuracy across multiple datasets"
+estimated_duration_minutes: 15
+benchmarks:
+  - stt_librispeech_clean
+  - stt_librispeech_other
+  - stt_common_voice
+  - stt_tedlium

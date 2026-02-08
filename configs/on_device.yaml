@@ -1,0 +1,16 @@
+# On-Device: Quick quality + performance for mobile (~15 min)
+suite: on_device
+model_type: llm
+description: "On-device focused evaluation with performance metrics"
+estimated_duration_minutes: 15
+benchmarks:
+  - edu_tier1_mmlu_elementary
+  - edu_tier1_arc_easy
+  - edu_tier1_gsm8k
+  - edu_tier2_mmlu_hs_math
+  - edu_tier2_mmlu_hs_bio
+performance_metrics:
+  - tokens_per_second
+  - time_to_first_token
+  - peak_memory_mb
+  - model_load_time_s
