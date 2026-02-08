@@ -4,13 +4,15 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from voicelearn_eval.core.config import ensure_data_dir, load_config
 from voicelearn_eval.core.orchestrator import EvalOrchestrator
 from voicelearn_eval.plugins.base import PluginRegistry
 from voicelearn_eval.plugins.llm.lm_eval_harness import LMEvalHarnessPlugin
+from voicelearn_eval.plugins.stt.open_asr import STTEvalPlugin
+from voicelearn_eval.plugins.tts.quality import TTSEvalPlugin
 from voicelearn_eval.storage.seed import seed_builtin_suites
 from voicelearn_eval.storage.sqlite_storage import SQLiteStorage
 
@@ -33,16 +35,23 @@ async def lifespan(app: FastAPI):
     # Initialize plugins
     registry = PluginRegistry()
     registry.register(LMEvalHarnessPlugin())
+    registry.register(STTEvalPlugin())
+    registry.register(TTSEvalPlugin())
     registry.discover_plugins()
 
-    # Initialize orchestrator
+    # Initialize orchestrator and WebSocket manager
+    from voicelearn_eval.api.websocket import ConnectionManager
+
+    ws_manager = ConnectionManager()
     orchestrator = EvalOrchestrator(storage, registry)
+    orchestrator.add_progress_listener(ws_manager.send_progress)
 
     # Store on app state
     app.state.config = config
     app.state.storage = storage
     app.state.registry = registry
     app.state.orchestrator = orchestrator
+    app.state.ws_manager = ws_manager
 
     yield
 
@@ -99,5 +108,16 @@ def create_app() -> FastAPI:
     app.include_router(reports.router, prefix="/api/eval", tags=["Reports"])
     app.include_router(test_sets.router, prefix="/api/eval", tags=["Test Sets"])
     app.include_router(share.router, prefix="/api/eval", tags=["Share"])
+
+    # WebSocket endpoint for live progress
+    @app.websocket("/api/eval/ws")
+    async def websocket_endpoint(websocket: WebSocket):
+        manager = app.state.ws_manager
+        await manager.connect(websocket)
+        try:
+            while True:
+                await websocket.receive_text()
+        except WebSocketDisconnect:
+            manager.disconnect(websocket)
 
     return app

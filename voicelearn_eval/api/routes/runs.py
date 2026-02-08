@@ -29,6 +29,14 @@ async def list_runs(
     if status:
         filters["status"] = status
     runs = await storage.list_runs(filters=filters, limit=limit, offset=offset)
+    # Enrich runs with model/suite names for display
+    for run in runs:
+        if run.get("model_id"):
+            model = await storage.get_model(run["model_id"])
+            run["model_name"] = model["name"] if model else "Unknown"
+        if run.get("suite_id"):
+            suite = await storage.get_suite(run["suite_id"])
+            run["suite_name"] = suite["name"] if suite else "Unknown"
     total = await storage.count_runs(filters=filters)
     return {"items": runs, "total": total, "limit": limit, "offset": offset}
 
