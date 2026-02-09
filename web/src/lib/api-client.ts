@@ -71,6 +71,31 @@ export const api = {
 
   getSuite: (id: string) => fetchJson<BenchmarkSuite>(`/suites/${id}`),
 
+  createSuite: (data: {
+    name: string;
+    model_type: string;
+    description?: string;
+    category?: string;
+    config?: Record<string, any>;
+    default_params?: Record<string, any>;
+  }) =>
+    fetchJson<BenchmarkSuite>("/suites", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  updateSuite: (id: string, data: Record<string, any>) =>
+    fetchJson<BenchmarkSuite>(`/suites/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  deleteSuite: (id: string) =>
+    fetchJson<void>(`/suites/${id}`, { method: "DELETE" }),
+
+  getSuiteTasks: (id: string) =>
+    fetchJson<{ items: any[]; total: number }>(`/suites/${id}/tasks`),
+
   // ── Runs ─────────────────────────────────────────────────
 
   listRuns: (params?: Record<string, string>) => {
