@@ -1,5 +1,7 @@
 """Model comparison endpoints."""
 
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from voicelearn_eval.api.dependencies import get_storage
@@ -39,7 +41,7 @@ async def compare_runs(
 @router.get("/compare/models")
 async def compare_models(
     model_ids: str = Query(..., description="Comma-separated model IDs"),
-    suite_id: str = Query(None, description="Filter by suite"),
+    suite_id: str | None = Query(None, description="Filter by suite"),
     storage: BaseStorage = Depends(get_storage),
 ):
     """Compare latest results for multiple models."""
@@ -53,7 +55,7 @@ async def compare_models(
         if not model:
             raise HTTPException(404, f"Model not found: {model_id}")
 
-        filters = {"model_id": model_id}
+        filters = {"model_id": model_id, "status": "completed"}
         if suite_id:
             filters["suite_id"] = suite_id
         runs = await storage.list_runs(filters=filters, limit=1)
@@ -68,4 +70,53 @@ async def compare_models(
             "results": results,
         })
 
-    return {"comparisons": comparisons, "model_count": len(comparisons)}
+    # Use analyzer for structured comparison
+    from voicelearn_eval.analyzer.comparisons import build_radar_data, compare_model_results
+
+    analysis = compare_model_results(comparisons)
+    radar = build_radar_data(comparisons, analysis.get("radar_dimensions", []))
+
+    return {
+        "comparisons": comparisons,
+        "model_count": len(comparisons),
+        "analysis": analysis,
+        "radar": radar,
+    }
+
+
+@router.get("/compare/recommendations")
+async def compare_recommendations(
+    model_ids: str = Query(..., description="Comma-separated model IDs"),
+    storage: BaseStorage = Depends(get_storage),
+):
+    """Get deployment recommendations for multiple models."""
+    ids = [m.strip() for m in model_ids.split(",") if m.strip()]
+
+    from voicelearn_eval.analyzer.recommendations import compare_recommendations, recommend_deployment
+
+    recs = []
+    for model_id in ids:
+        model = await storage.get_model(model_id)
+        if not model:
+            raise HTTPException(404, f"Model not found: {model_id}")
+
+        runs = await storage.list_runs(filters={"model_id": model_id, "status": "completed"}, limit=1)
+        run = runs[0] if runs else None
+
+        grade_rating = None
+        if run:
+            metrics = run.get("overall_metrics")
+            if isinstance(metrics, str):
+                try:
+                    metrics = json.loads(metrics)
+                except (json.JSONDecodeError, TypeError):
+                    metrics = {}
+            grade_rating = metrics.get("grade_level") if metrics else None
+
+        rec = recommend_deployment(model=model, run=run, grade_rating=grade_rating)
+        rec["model_name"] = model["name"]
+        rec["model_id"] = model["id"]
+        recs.append(rec)
+
+    summary = compare_recommendations(recs)
+    return {"recommendations": recs, "summary": summary}

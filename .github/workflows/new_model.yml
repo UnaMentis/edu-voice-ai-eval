@@ -1,0 +1,139 @@
+name: Check New Models
+
+on:
+  schedule:
+    # Run daily at midnight UTC
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+    inputs:
+      search_query:
+        description: "HuggingFace search query"
+        required: false
+        default: "education language model"
+        type: string
+
+jobs:
+  check-models:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install package
+        run: pip install -e ".[dev]"
+
+      - name: Check for new models
+        id: check
+        env:
+          SEARCH_QUERY: ${{ github.event.inputs.search_query || 'education language model' }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python -c "
+          import json
+          import sys
+
+          try:
+              from huggingface_hub import HfApi
+              api = HfApi()
+
+              # Search for recently updated education models
+              models = list(api.list_models(
+                  search='$SEARCH_QUERY',
+                  sort='lastModified',
+                  direction=-1,
+                  limit=20,
+              ))
+
+              new_models = []
+              for m in models:
+                  new_models.append({
+                      'repo_id': m.modelId,
+                      'last_modified': str(m.lastModified) if m.lastModified else None,
+                      'downloads': m.downloads or 0,
+                      'likes': m.likes or 0,
+                      'pipeline_tag': m.pipeline_tag,
+                  })
+
+              with open('new_models.json', 'w') as f:
+                  json.dump(new_models, f, indent=2)
+
+              print(f'Found {len(new_models)} models')
+              if new_models:
+                  print('has_new=true')
+                  with open(sys.stdout.fileno(), 'w', closefd=False) as gh:
+                      pass
+
+          except ImportError:
+              print('huggingface-hub not available')
+              sys.exit(0)
+          except Exception as e:
+              print(f'Error: {e}')
+              sys.exit(0)
+          " 2>&1 | tee check_output.txt
+
+          if [ -f new_models.json ]; then
+            MODEL_COUNT=$(python -c "import json; print(len(json.load(open('new_models.json'))))")
+            echo "model_count=$MODEL_COUNT" >> "$GITHUB_OUTPUT"
+            echo "has_new=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_new=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload model list
+        if: steps.check.outputs.has_new == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: new-models-${{ github.run_number }}
+          path: new_models.json
+          retention-days: 30
+
+      - name: Create tracking issue
+        if: steps.check.outputs.has_new == 'true' && steps.check.outputs.model_count > 0
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let models = [];
+            try {
+              models = JSON.parse(fs.readFileSync('new_models.json', 'utf8'));
+            } catch (e) {
+              console.log('Could not read models file');
+              return;
+            }
+
+            if (models.length === 0) return;
+
+            const modelList = models.slice(0, 10).map(m =>
+              `- **${m.repo_id}** (${m.pipeline_tag || 'unknown'}) - ${m.downloads} downloads, ${m.likes} likes`
+            ).join('\n');
+
+            const today = new Date().toISOString().split('T')[0];
+
+            // Check if issue already exists for today
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'new-models',
+              state: 'open',
+            });
+
+            const todayIssue = issues.find(i => i.title.includes(today));
+            if (todayIssue) {
+              console.log(`Issue already exists for today: #${todayIssue.number}`);
+              return;
+            }
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `New education models detected - ${today}`,
+              body: `## New Models Found\n\n${modelList}\n\n${models.length > 10 ? `\n... and ${models.length - 10} more. See artifacts for full list.\n` : ''}\n### Next Steps\n- [ ] Review models for relevance\n- [ ] Import promising models with \`voicelearn-eval model import-hf <repo_id> --type llm\`\n- [ ] Run evaluation suite`,
+              labels: ['new-models', 'triage'],
+            });

@@ -1,0 +1,98 @@
+name: Evaluate Model
+
+on:
+  workflow_dispatch:
+    inputs:
+      model_id:
+        description: "Model ID or slug to evaluate"
+        required: true
+        type: string
+      suite_id:
+        description: "Benchmark suite ID or slug"
+        required: true
+        default: "quick_scan"
+        type: string
+      threshold:
+        description: "Minimum passing score (0-100)"
+        required: false
+        default: "70"
+        type: string
+  schedule:
+    # Run weekly on Monday at 6 AM UTC
+    - cron: "0 6 * * 1"
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install package
+        run: pip install -e ".[dev]"
+
+      - name: Run evaluation
+        id: eval
+        env:
+          MODEL_ID: ${{ github.event.inputs.model_id || 'all-registered' }}
+          SUITE_ID: ${{ github.event.inputs.suite_id || 'quick_scan' }}
+          THRESHOLD: ${{ github.event.inputs.threshold || '70' }}
+        run: |
+          echo "::group::Running evaluation"
+          voicelearn-eval run \
+            --model "$MODEL_ID" \
+            --suite "$SUITE_ID" \
+            --ci \
+            --threshold "$THRESHOLD" \
+            --output-format json \
+            > eval_results.json 2>&1 || true
+
+          EXIT_CODE=$?
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+          echo "::endgroup::"
+
+          # Display results
+          echo "::group::Results"
+          voicelearn-eval grade --model "$MODEL_ID" || true
+          echo "::endgroup::"
+
+      - name: Upload results artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-results-${{ github.run_number }}
+          path: |
+            eval_results.json
+            *.vlef.json
+          retention-days: 90
+
+      - name: Check threshold
+        if: steps.eval.outputs.exit_code != '0'
+        run: |
+          echo "::warning::Evaluation did not meet threshold"
+          exit ${{ steps.eval.outputs.exit_code }}
+
+  notify:
+    needs: evaluate
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create issue on failure
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: issue } = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Evaluation regression detected - Run #${context.runNumber}`,
+              body: `## Evaluation Failure\n\nWorkflow run [#${context.runNumber}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) detected a regression.\n\nPlease review the evaluation artifacts for details.`,
+              labels: ['regression', 'evaluation'],
+            });
+            console.log(`Created issue #${issue.number}`);

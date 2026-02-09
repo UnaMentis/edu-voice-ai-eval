@@ -127,6 +127,18 @@ export const api = {
 
   listBaselines: () => fetchJson<{ items: any[] }>("/baselines"),
 
+  checkRegression: (baselineId: string, runId: string) =>
+    fetchJson<Record<string, any>>(
+      `/baselines/${baselineId}/check?run_id=${runId}`
+    ),
+
+  // ── Recommendations ────────────────────────────────────
+
+  getRecommendations: (modelIds: string[]) =>
+    fetchJson<{ recommendations: any[]; summary: any }>(
+      `/compare/recommendations?model_ids=${modelIds.join(",")}`
+    ),
+
   // ── Test sets ────────────────────────────────────────────
 
   listTestSets: () => fetchJson<{ items: any[] }>("/test-sets"),
