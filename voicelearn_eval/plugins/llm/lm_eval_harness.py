@@ -226,7 +226,8 @@ class LMEvalHarnessPlugin(BaseEvalPlugin):
 
         if source_type == "huggingface":
             model_type = "hf"
-            args = f"pretrained={source_uri}"
+            path = model_spec.get("local_path") or source_uri
+            args = f"pretrained={path}"
             if model_spec.get("quantization"):
                 args += ",dtype=float16"
             return model_type, args

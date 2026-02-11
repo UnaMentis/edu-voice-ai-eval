@@ -52,10 +52,54 @@ class SQLiteStorage(BaseStorage):
         await self._run_migrations()
 
     async def _run_migrations(self) -> None:
-        migration_path = Path(__file__).parent / "migrations" / "001_initial.sql"
-        sql = migration_path.read_text()
-        await self._db.executescript(sql)
+        migrations_dir = Path(__file__).parent / "migrations"
+
+        # Run 001_initial.sql via executescript (CREATE TABLE IF NOT EXISTS)
+        initial = migrations_dir / "001_initial.sql"
+        if initial.exists():
+            await self._db.executescript(initial.read_text())
+            await self._db.commit()
+
+        # Track applied migrations for incremental ones
+        await self._db.execute(
+            "CREATE TABLE IF NOT EXISTS _migrations "
+            "(name TEXT PRIMARY KEY, applied_at TEXT)"
+        )
         await self._db.commit()
+
+        # Mark 001 as applied if not already
+        cursor = await self._db.execute(
+            "SELECT 1 FROM _migrations WHERE name = ?", ("001_initial.sql",)
+        )
+        if not await cursor.fetchone():
+            await self._db.execute(
+                "INSERT INTO _migrations (name, applied_at) VALUES (?, ?)",
+                ("001_initial.sql", _now()),
+            )
+            await self._db.commit()
+
+        # Run subsequent migrations in order
+        for sql_file in sorted(migrations_dir.glob("*.sql")):
+            if sql_file.name == "001_initial.sql":
+                continue
+            cursor = await self._db.execute(
+                "SELECT 1 FROM _migrations WHERE name = ?", (sql_file.name,)
+            )
+            if await cursor.fetchone():
+                continue
+            sql = sql_file.read_text()
+            for statement in sql.split(";"):
+                statement = statement.strip()
+                if statement and not statement.startswith("--"):
+                    try:
+                        await self._db.execute(statement)
+                    except Exception:
+                        pass  # Column already exists (idempotent)
+            await self._db.execute(
+                "INSERT INTO _migrations (name, applied_at) VALUES (?, ?)",
+                (sql_file.name, _now()),
+            )
+            await self._db.commit()
 
     async def close(self) -> None:
         if self._db:

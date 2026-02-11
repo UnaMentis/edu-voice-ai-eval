@@ -22,3 +22,7 @@ def get_registry(request: Request) -> PluginRegistry:
 
 def get_orchestrator(request: Request) -> EvalOrchestrator:
     return request.app.state.orchestrator
+
+
+def get_download_service(request: Request):
+    return request.app.state.download_service

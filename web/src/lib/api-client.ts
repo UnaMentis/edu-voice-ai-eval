@@ -9,6 +9,7 @@ import type {
   EvalRun,
   TaskResult,
   PaginatedResponse,
+  HuggingFaceSearchResult,
 } from "@/types/evaluation";
 
 const BASE = "/api/eval";
@@ -62,6 +63,42 @@ export const api = {
     fetchJson<EvalModel>("/models/import-hf", {
       method: "POST",
       body: JSON.stringify(data),
+    }),
+
+  // ── HuggingFace search & downloads ─────────────────────
+
+  searchHuggingFace: (params: {
+    q: string;
+    task?: string;
+    sort?: string;
+    limit?: number;
+  }) => {
+    const qs = new URLSearchParams({ q: params.q });
+    if (params.task) qs.set("task", params.task);
+    if (params.sort) qs.set("sort", params.sort);
+    if (params.limit) qs.set("limit", String(params.limit));
+    return fetchJson<{ items: HuggingFaceSearchResult[]; total: number; query: string }>(
+      `/models/search-hf?${qs}`
+    );
+  },
+
+  startDownload: (modelId: string) =>
+    fetchJson<{ status: string; model_id: string }>(`/models/${modelId}/download`, {
+      method: "POST",
+    }),
+
+  getDownloadStatus: (modelId: string) =>
+    fetchJson<{
+      model_id: string;
+      status: string;
+      local_path?: string;
+      error?: string;
+      progress: number;
+    }>(`/models/${modelId}/download-status`),
+
+  cancelDownload: (modelId: string) =>
+    fetchJson<{ status: string; model_id: string }>(`/models/${modelId}/download/cancel`, {
+      method: "POST",
     }),
 
   // ── Suites ───────────────────────────────────────────────

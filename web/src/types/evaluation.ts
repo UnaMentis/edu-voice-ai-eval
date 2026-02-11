@@ -8,6 +8,9 @@ export type ModelType = "llm" | "stt" | "tts" | "vad" | "embeddings";
 /** Where the model is expected to run. */
 export type DeploymentTarget = "on-device" | "server" | "cloud-api";
 
+/** Download lifecycle status. */
+export type DownloadStatus = "none" | "downloading" | "cached" | "failed";
+
 /** Lifecycle status of an evaluation run. */
 export type RunStatus =
   | "pending"
@@ -40,6 +43,10 @@ export interface EvalModel {
   subjects: string[];
   tags: string[];
   is_reference: boolean;
+  download_status?: DownloadStatus;
+  local_path?: string;
+  download_error?: string;
+  download_progress?: number;
   created_at: string;
 }
 
@@ -100,6 +107,20 @@ export interface GradeLevelRating {
     string,
     Array<{ task_name: string; score: number; weight: number }>
   >;
+}
+
+// ── HuggingFace search result ────────────────────────────────
+
+export interface HuggingFaceSearchResult {
+  repo_id: string;
+  name: string;
+  author?: string;
+  downloads: number;
+  likes: number;
+  pipeline_tag?: string;
+  tags: string[];
+  last_modified?: string;
+  parameter_count_b?: number;
 }
 
 // ── Generic paginated envelope ───────────────────────────────

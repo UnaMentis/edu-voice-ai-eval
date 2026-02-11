@@ -46,12 +46,19 @@ async def lifespan(app: FastAPI):
     orchestrator = EvalOrchestrator(storage, registry)
     orchestrator.add_progress_listener(ws_manager.send_progress)
 
+    # Initialize download service
+    from voicelearn_eval.services.download import DownloadService
+
+    download_service = DownloadService(storage, ws_manager)
+    await download_service.reset_stale_downloads()
+
     # Store on app state
     app.state.config = config
     app.state.storage = storage
     app.state.registry = registry
     app.state.orchestrator = orchestrator
     app.state.ws_manager = ws_manager
+    app.state.download_service = download_service
 
     yield
 

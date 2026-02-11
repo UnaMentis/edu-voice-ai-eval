@@ -11,6 +11,7 @@ import type {
   EvalRun,
   BenchmarkSuite,
   TaskResult,
+  DownloadStatus,
 } from "@/types/evaluation";
 
 // ── Generic helpers ──────────────────────────────────────────
@@ -160,6 +161,57 @@ export function useGradeMatrix(modelId?: string): AsyncState<any[]> {
   }, [refresh]);
 
   return { data: matrix, loading, error, refresh };
+}
+
+// ── useDownloadStatus (polling while downloading) ────────────
+
+interface DownloadState {
+  status: DownloadStatus;
+  progress: number;
+  local_path?: string;
+  error?: string;
+}
+
+export function useDownloadStatus(
+  modelId: string | null,
+  pollInterval = 2000
+): AsyncState<DownloadState | null> {
+  const [state, setState] = useState<DownloadState | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    if (!modelId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await api.getDownloadStatus(modelId);
+      setState({
+        status: data.status as DownloadStatus,
+        progress: data.progress,
+        local_path: data.local_path,
+        error: data.error,
+      });
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [modelId]);
+
+  useEffect(() => {
+    if (modelId) refresh();
+  }, [modelId, refresh]);
+
+  useEffect(() => {
+    if (!modelId || !pollInterval) return;
+    if (state?.status && state.status !== "downloading") return;
+
+    const timer = setInterval(refresh, pollInterval);
+    return () => clearInterval(timer);
+  }, [modelId, pollInterval, state?.status, refresh]);
+
+  return { data: state, loading, error, refresh };
 }
 
 // ── useRun (single run with polling) ─────────────────────────
